@@ -1,21 +1,21 @@
 import csv
 import random
-import os
-from dotenv import load_dotenv
-import google.generativeai as genai
-import argparse
- 
-load_dotenv()
- 
+# import os
+# import argparse
+# from dotenv import load_dotenv
+# import google.generativeai as genai
+
+# load_dotenv()
+
 # Load Gemini config from .env
-_GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-_GEMINI_PROMPT = os.getenv("GEMINI_PROMPT")
- 
-if _GEMINI_API_KEY:
-    genai.configure(api_key=_GEMINI_API_KEY)
-    _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-else:
-    _gemini_model = None
+# _GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# _GEMINI_PROMPT = os.getenv("GEMINI_PROMPT")
+
+# if _GEMINI_API_KEY:
+#     genai.configure(api_key=_GEMINI_API_KEY)
+#     _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+# else:
+#     _gemini_model = None
 
 def generate_weighted_responses():
     """
@@ -31,7 +31,7 @@ def generate_weighted_responses():
 
     # Câu 2: Loại giày thường mang [1, 2]
     q2_options = ["Chỉ mang giày thể thao thông thường (sneakers)", "Chỉ mang giày đá bóng (giày đinh/turf)", "Mang cả hai loại", "Tùy thuộc vào tình huống"]
-    q2_weights = [20, 25, 35, 20]
+    q2_weights = [22, 25, 35, 18]
 
     # Câu 3: Quên mang giày đá bóng [2]
     q3_options = ["Có, điều này xảy ra khá thường xuyên", "Có, nhưng chỉ thỉnh thoảng", "Hiếm khi", "Chưa bao giờ"]
@@ -66,16 +66,16 @@ def generate_weighted_responses():
     q9_options = ["Có, tôi rất quan tâm", "Có thể, tùy thuộc vào giải pháp đó là gì", "Không quan tâm"]
     q9_weights = [45, 40, 15]
 
-    # Selection Logic
+    # Selection Logic — [0] unpacks the single-item list random.choices() returns
     response = {
-        "Câu 1": random.choices(q1_options, weights=q1_weights),
-        "Câu 2": random.choices(q2_options, weights=q2_weights),
-        "Câu 3": random.choices(q3_options, weights=q3_weights),
-        "Câu 4": random.choices(q4_options, weights=q4_weights),
-        "Câu 6": random.choices(q6_options, weights=q6_weights),
-        "Câu 7": random.choices(q7_options, weights=q7_weights),
-        "Câu 8": random.choices(q8_options, weights=q8_weights),
-        "Câu 9": random.choices(q9_options, weights=q9_weights),
+        "Câu 1": random.choices(q1_options, weights=q1_weights)[0],
+        "Câu 2": random.choices(q2_options, weights=q2_weights)[0],
+        "Câu 3": random.choices(q3_options, weights=q3_weights)[0],
+        "Câu 4": random.choices(q4_options, weights=q4_weights)[0],
+        "Câu 6": random.choices(q6_options, weights=q6_weights)[0],
+        "Câu 7": random.choices(q7_options, weights=q7_weights)[0],
+        "Câu 8": random.choices(q8_options, weights=q8_weights)[0],
+        "Câu 9": random.choices(q9_options, weights=q9_weights)[0],
     }
 
     # Special handling for Question 5 (Checkbox/Multiple Choice) [3]
@@ -84,17 +84,17 @@ def generate_weighted_responses():
 
     # Câu 10: Weighted boolean (70% True / 30% False)
     # If True, generate a Gemini response using the prompt from .env
-    q10_true = random.choices([True, False], weights=[70, 30])[0]
-    if q10_true and _gemini_model and _GEMINI_PROMPT:
-        gemini_response = _gemini_model.generate_content(_GEMINI_PROMPT)
-        response["Câu 10"] = gemini_response.text.strip()
-    else:
-        response["Câu 10"] = ""
+    # q10_true = random.choices([True, False], weights=[70, 30])[0]
+    # if q10_true and _gemini_model and _GEMINI_PROMPT:
+    #     gemini_response = _gemini_model.generate_content(_GEMINI_PROMPT)
+    #     response["Câu 10"] = gemini_response.text.strip()
+    # else:
+    #     response["Câu 10"] = ""
 
     return response
 
 def save_weighted_csv(filename="data.csv", num_records=20):
-    fieldnames = ["Câu 1", "Câu 2", "Câu 3", "Câu 4", "Câu 5", "Câu 6", "Câu 7", "Câu 8", "Câu 9", "Câu 10"]
+    fieldnames = ["Câu 1", "Câu 2", "Câu 3", "Câu 4", "Câu 5", "Câu 6", "Câu 7", "Câu 8", "Câu 9"]
     
     with open(filename, mode='w', newline='', encoding='utf-8-sig') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -104,10 +104,11 @@ def save_weighted_csv(filename="data.csv", num_records=20):
     
     print(f"Generated {num_records} weighted responses in '{filename}'.")
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate weighted survey responses.")
-    parser.add_argument("--records", type=int, default=20, help="Number of records to generate (default: 20)")
-    parser.add_argument("--output", type=str, default="data.csv", help="Output CSV filename (default: data.csv)")
-    args = parser.parse_args()
- 
-    save_weighted_csv(filename=args.output, num_records=args.records)
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description="Generate weighted survey responses.")
+#     parser.add_argument("--records", type=int, default=20, help="Number of records to generate (default: 20)")
+#     parser.add_argument("--output", type=str, default="data.csv", help="Output CSV filename (default: data.csv)")
+#     args = parser.parse_args()
+
+#     save_weighted_csv(filename=args.output, num_records=args.records)
+save_weighted_csv()
