@@ -1,21 +1,29 @@
-import csv
+import os
 import random
 import argparse
 import time
 import requests
+from tqdm import tqdm
+from dotenv import load_dotenv
 
-# Replace with your actual Google Form ID
-FORM_ID = "YOUR_FORM_ID_HERE"
+# Load variables from .env 
+load_dotenv()
+FORM_ID = os.getenv("FORM_ID")
+
+if not FORM_ID:
+    print("Error: FORM_ID not found in .env file.")
+    exit(1)
+
 FORM_URL = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
 
 def generate_weighted_responses():
-    """Generates response data based on weighted probabilities[cite: 3, 4]."""
-    # Question 1: The Screening Question 
+    """Generates response data based on weighted probabilities. [cite: 1, 2, 3]"""
+    # Question 1: The Screening Question [cite: 4]
     q1_options = ["Có, tôi chơi thường xuyên (ít nhất 1 lần mỗi tuần)", "Thỉnh thoảng (1 đến 3 lần mỗi tháng)", "Hiếm khi hoặc không bao giờ"]
     q1_weights = [85.5, 10.5, 4.0]
     q1_answer = random.choices(q1_options, weights=q1_weights)[0]
 
-    # Check if screening failed (User selects the last option) [cite: 10]
+    # Check if screening failed (User selects the last option) [cite: 9, 10]
     if q1_answer == "Hiếm khi hoặc không bao giờ":
         return {
             "type": "fail",
@@ -23,7 +31,7 @@ def generate_weighted_responses():
             "fbzx": str(random.randint(10**18, 10**19)) 
         }
 
-    # Weights for the rest of the survey [cite: 4, 7, 8, 9]
+    # Weights for the rest of the survey [cite: 4, 5, 7, 8, 9]
     q5_choices = [
         ("Phụ kiện có thể bị tuột hoặc lỏng trong khi chơi", 0.45),
         ("Độ bám vẫn không đủ tốt so với giày đá bóng thật", 0.22),
@@ -32,7 +40,7 @@ def generate_weighted_responses():
         ("Giá thành quá cao", 0.06),
         ("Không có lo ngại gì đặc biệt", 0.05)
     ]
-    selected_q5 = [opt for opt, weight in q5_choices if random.random() < weight]
+    selected_q5 = [opt for opt, weight in q5_choices if random.random() < weight] [cite: 12]
 
     return {
         "type": "pass",
@@ -51,12 +59,12 @@ def generate_weighted_responses():
     }
 
 def submit_logic(response):
-    """Handles the multi-step POST logic based on whether screening was passed."""
+    """Handles the multi-step POST logic based on screening results."""
     fbzx = response["fbzx"]
     ts = str(int(time.time() * 1000))
 
     if response["type"] == "fail":
-        # Request 1: Continue request for Screened Out users
+        # Request 1: Continue request
         payload1 = {
             "entry.213754659": response["q1_answer"],
             "entry.213754659_sentinel": "",
@@ -69,7 +77,7 @@ def submit_logic(response):
         }
         requests.post(FORM_URL, data=payload1)
         
-        # Request 2: Final submission for Screened Out users
+        # Request 2: Final submission
         payload2 = {
             "fvv": "1",
             "partialResponse": f"[[[null,213754659,[\"{response['q1_answer']}\"],0]],null,\"{fbzx}\"]",
@@ -78,7 +86,6 @@ def submit_logic(response):
             "submissionTimestamp": ts
         }
         requests.post(FORM_URL, data=payload2)
-        print(f"[-] Screened out: {response['q1_answer']}")
 
     else:
         # Pass logic: Full POST submission
@@ -89,28 +96,26 @@ def submit_logic(response):
             "fbzx": fbzx,
             "submissionTimestamp": ts
         })
-        # Adding sentinels for completeness
         for key in list(full_data.keys()):
             if "entry" in key:
                 full_data[f"{key}_sentinel"] = ""
         
         requests.post(FORM_URL, data=full_data)
-        print(f"[+] Full Submission successful: {full_data['entry.213754659']}")
 
 def run_simulation(num_records, delay):
-    """Loops through the specified number of simulations."""
-    print(f"Starting {num_records} simulations...")
-    for i in range(num_records):
+    """Loops through the specified number of simulations with a progress bar."""
+    print(f"Targeting Form: {FORM_ID}")
+    
+    for _ in tqdm(range(num_records), desc="Submitting Responses", unit="resp"):
         res = generate_weighted_responses()
         submit_logic(res)
-        if i < num_records - 1: # Don't sleep after the very last one
+        if num_records > 1:
             time.sleep(delay)
-    print("All simulations complete.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Submit weighted survey responses to Google Forms.")
-    parser.add_argument("-n", "--simulations", type=int, default=5, help="Number of simulations to run (default: 5)")
-    parser.add_argument("-d", "--delay", type=float, default=2.0, help="Delay in seconds between submissions (default: 2.0)")
+    parser.add_argument("-n", "--simulations", type=int, default=5, help="Number of simulations (default: 5)")
+    parser.add_argument("-d", "--delay", type=float, default=2.0, help="Delay (seconds) between submissions (default: 2.0)")
     args = parser.parse_args()
 
     run_simulation(num_records=args.simulations, delay=args.delay)
