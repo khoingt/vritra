@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 import sys
 import os
 import requests
@@ -13,9 +14,12 @@ load_dotenv()
 
 PROGRESS_FILE = "progress.json"
 
-def setup_logging(debug_mode):
+def setup_logging(debug_mode, log_dir=None):
     """Set up logging to both console and a timestamped log file."""
     log_filename = datetime.now().strftime("cipactli_%Y-%m-%d_%H-%M-%S.log")
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+        log_filename = os.path.join(log_dir, log_filename)
     handlers = [
         logging.FileHandler(log_filename, encoding="utf-8"),
         logging.StreamHandler(sys.stdout)
@@ -47,23 +51,37 @@ def clear_progress():
         os.remove(PROGRESS_FILE)
 
 def create_session(form_id, debug=False):
-    """GET the form page first to obtain a valid session cookie, then return the session."""
+    """GET the form page to obtain session cookies and the fbzx CSRF token."""
     view_url = f"https://docs.google.com/forms/d/e/{form_id}/viewform"
     session = requests.Session()
     session.headers.update({
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
         "Referer": view_url,
     })
+
+    fbzx = None
     try:
         resp = session.get(view_url)
         if debug:
             logging.debug(f"Session GET {view_url} -> {resp.status_code}")
             logging.debug(f"Cookies acquired: {dict(session.cookies)}")
+
+        # Extract the fbzx CSRF token embedded in the form HTML
+        match = re.search(r'"fbzx"\s*value="(-?\d+)"', resp.text)
+        if not match:
+            # Fallback: some versions use a JS variable
+            match = re.search(r'FB_PUBLIC_LOAD_DATA_.*?"(-\d{15,})"', resp.text)
+        if match:
+            fbzx = match.group(1)
+            logging.debug(f"fbzx token extracted: {fbzx}")
+        else:
+            logging.warning("Could not extract fbzx token — submissions may fail.")
     except Exception as e:
         logging.warning(f"Could not pre-fetch form page: {type(e).__name__}: {e}")
-    return session
 
-def submit_form(form_id, field_mapping, row, session, debug=False):
+    return session, fbzx
+
+def submit_form(form_id, field_mapping, row, session, fbzx, debug=False):
     form_url = f"https://docs.google.com/forms/d/e/{form_id}/formResponse"
 
     # Build as a list of (key, value) tuples to support repeated keys for checkboxes
@@ -77,6 +95,16 @@ def submit_form(form_id, field_mapping, row, session, debug=False):
                 form_data.append((entry_id, option))
         else:
             form_data.append((entry_id, value))
+
+    # Include all hidden fields Google Forms requires
+    form_data.append(("fbzx", fbzx or ""))
+    form_data.append(("pageHistory", "0"))
+    form_data.append(("fvv", "1"))
+    form_data.append(("partialResponse", f'[null,null,"{fbzx or ""}"]'))
+    form_data.append(("submissionTimestamp", "-1"))
+    # Sentinel fields — one per question entry, required by Google Forms validation
+    for csv_header, entry_id in field_mapping.items():
+        form_data.append((f"{entry_id}_sentinel", ""))
 
     if debug:
         logging.debug(f"Submitting to: {form_url}")
@@ -109,7 +137,13 @@ def submit_form(form_id, field_mapping, row, session, debug=False):
 def main():
     debug_mode = "--debug" in sys.argv
 
-    log_filename = setup_logging(debug_mode)
+    log_dir = None
+    if "--log-dir" in sys.argv:
+        idx = sys.argv.index("--log-dir")
+        if idx + 1 < len(sys.argv):
+            log_dir = sys.argv[idx + 1]
+
+    log_filename = setup_logging(debug_mode, log_dir=log_dir)
     logging.info(f"Logging to: {log_filename}")
 
     form_id = os.getenv("FORM_ID")
@@ -155,16 +189,22 @@ def main():
     MAX_RETRIES = 3
     RETRY_DELAY = 5  # seconds between retries
 
-    # Create a session with valid cookies by GETting the form page first
-    logging.info("Initializing session...")
-    session = create_session(form_id, debug=debug_mode)
-
     for i, row in enumerate(all_rows[start_index:], start=start_index):
         logging.info(f"Processing {i+1}/{len(all_rows)}: {row.get('Câu 1', 'Entry')[:30]}...")
 
         success, code = False, None
         for attempt in range(1, MAX_RETRIES + 1):
-            success, code = submit_form(form_id, field_mapping, row, session, debug=debug_mode)
+            # Re-initialize session and fbzx token on every attempt — Google
+            # invalidates the session after a rejected POST, so reusing it causes
+            # all subsequent retries to fail with the same 400.
+            logging.info(f"  Initializing session (attempt {attempt})...")
+            session, fbzx = create_session(form_id, debug=debug_mode)
+            if fbzx:
+                logging.debug(f"  fbzx token acquired: {fbzx}")
+            else:
+                logging.warning("  No fbzx token found — submission may be rejected.")
+
+            success, code = submit_form(form_id, field_mapping, row, session, fbzx, debug=debug_mode)
             if success:
                 logging.info(f"  Record {i+1} submitted successfully (attempt {attempt}).")
                 break

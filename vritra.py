@@ -1,7 +1,7 @@
 import csv
 import random
 # import os
-# import argparse
+import argparse
 # from dotenv import load_dotenv
 # import google.generativeai as genai
 
@@ -104,11 +104,11 @@ def save_weighted_csv(filename="data.csv", num_records=20):
     
     print(f"Generated {num_records} weighted responses in '{filename}'.")
 
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(description="Generate weighted survey responses.")
-#     parser.add_argument("--records", type=int, default=20, help="Number of records to generate (default: 20)")
-#     parser.add_argument("--output", type=str, default="data.csv", help="Output CSV filename (default: data.csv)")
-#     args = parser.parse_args()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate weighted survey responses.")
+    parser.add_argument("--records", type=int, default=20, help="Number of records to generate (default: 20)")
+    parser.add_argument("--output", type=str, default="data.csv", help="Output CSV filename (default: data.csv)")
+    args = parser.parse_args()
 
-#     save_weighted_csv(filename=args.output, num_records=args.records)
-save_weighted_csv()
+    save_weighted_csv(filename=args.output, num_records=args.records)
+# save_weighted_csv()
