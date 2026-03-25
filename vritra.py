@@ -17,13 +17,13 @@ if not FORM_ID:
 FORM_URL = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
 
 def generate_weighted_responses():
-    """Generates response data based on weighted probabilities. [cite: 1, 2, 3]"""
-    # Question 1: The Screening Question [cite: 4]
+    """Generates response data based on weighted probabilities."""
+    # Question 1: The Screening Question
     q1_options = ["Có, tôi chơi thường xuyên (ít nhất 1 lần mỗi tuần)", "Thỉnh thoảng (1 đến 3 lần mỗi tháng)", "Hiếm khi hoặc không bao giờ"]
     q1_weights = [85.5, 10.5, 4.0]
     q1_answer = random.choices(q1_options, weights=q1_weights)[0]
 
-    # Check if screening failed (User selects the last option) [cite: 9, 10]
+    # Check if screening failed
     if q1_answer == "Hiếm khi hoặc không bao giờ":
         return {
             "type": "fail",
@@ -31,7 +31,7 @@ def generate_weighted_responses():
             "fbzx": str(random.randint(10**18, 10**19)) 
         }
 
-    # Weights for the rest of the survey [cite: 4, 5, 7, 8, 9]
+    # Weights for the rest of the survey
     q5_choices = [
         ("Phụ kiện có thể bị tuột hoặc lỏng trong khi chơi", 0.45),
         ("Độ bám vẫn không đủ tốt so với giày đá bóng thật", 0.22),
@@ -86,6 +86,7 @@ def submit_logic(response):
             "submissionTimestamp": ts
         }
         requests.post(FORM_URL, data=payload2)
+        return "fail"
 
     else:
         # Pass logic: Full POST submission
@@ -101,16 +102,25 @@ def submit_logic(response):
                 full_data[f"{key}_sentinel"] = ""
         
         requests.post(FORM_URL, data=full_data)
+        return "pass"
 
 def run_simulation(num_records, delay):
     """Loops through the specified number of simulations with a progress bar."""
     print(f"Targeting Form: {FORM_ID}")
+    stats = {"pass": 0, "fail": 0}
     
     for _ in tqdm(range(num_records), desc="Submitting Responses", unit="resp"):
         res = generate_weighted_responses()
-        submit_logic(res)
+        status = submit_logic(res)
+        stats[status] += 1
         if num_records > 1:
             time.sleep(delay)
+
+    print("\n--- Simulation Summary ---")
+    print(f"Total Attempts: {num_records}")
+    print(f"Passed Screening: {stats['pass']}")
+    print(f"Screened Out: {stats['fail']}")
+    print("--------------------------")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Submit weighted survey responses to Google Forms.")
