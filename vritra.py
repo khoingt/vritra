@@ -40,7 +40,7 @@ def generate_weighted_responses():
         ("Giá thành quá cao", 0.06),
         ("Không có lo ngại gì đặc biệt", 0.05)
     ]
-    selected_q5 = [opt for opt, weight in q5_choices if random.random() < weight] [cite: 12]
+    selected_q5 = [opt for opt, weight in q5_choices if random.random() < weight]
 
     return {
         "type": "pass",
