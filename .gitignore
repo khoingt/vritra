@@ -1,8 +1,3 @@
 .env
 data.csv
-.~lock.data.csv#
-mapping_extracted.json
-.gitignore
-progress.json
 /logs
-test_post_response.html
