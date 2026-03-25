@@ -1,114 +1,91 @@
 import csv
 import random
-# import os
 import argparse
-# from dotenv import load_dotenv
-# import google.generativeai as genai
+import time
+import requests  # You may need to run: pip install requests
 
-# load_dotenv()
-
-# Load Gemini config from .env
-# _GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# _GEMINI_PROMPT = os.getenv("GEMINI_PROMPT")
-
-# if _GEMINI_API_KEY:
-#     genai.configure(api_key=_GEMINI_API_KEY)
-#     _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-# else:
-#     _gemini_model = None
+# Replace with your actual Google Form ID
+FORM_ID = "1FAIpQLSeKZp7pIwRf-O9Sw3y7Tl6_q-jaKRLlWmq49yjykPiCcSzrOA"
+FORM_URL = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
 
 def generate_weighted_responses():
-    """
-    Generates a single set of weighted random survey responses.
-    Weights are assigned as lists corresponding to the options.
-    """
-    # Questions and Options taken directly from the sources [1-5]
-    # Weights are estimated examples and NOT from the source text.
-    
-    # Câu 1: Tần suất chơi bóng [1]
+    # Options and Weights [cite: 3, 4, 6]
     q1_options = ["Có, tôi chơi thường xuyên (ít nhất 1 lần mỗi tuần)", "Thỉnh thoảng (1 đến 3 lần mỗi tháng)", "Hiếm khi hoặc không bao giờ"]
-    q1_weights =  [60, 30, 10]
+    q1_weights = [85.5, 10.5, 4.0]
 
-    # Câu 2: Loại giày thường mang [1, 2]
-    q2_options = ["Chỉ mang giày thể thao thông thường (sneakers)", "Chỉ mang giày đá bóng (giày đinh/turf)", "Mang cả hai loại", "Tùy thuộc vào tình huống"]
-    q2_weights = [22, 25, 35, 18]
+    q2_options = ["Có, điều này thường xuyên gây khó chịu cho tôi", "Có, nhưng tôi không coi đó là vấn đề lớn", "Không, tôi không cảm thấy bất tiện"]
+    q2_weights = [70.2, 20.4, 9.4]
 
-    # Câu 3: Quên mang giày đá bóng [2]
-    q3_options = ["Có, điều này xảy ra khá thường xuyên", "Có, nhưng chỉ thỉnh thoảng", "Hiếm khi", "Chưa bao giờ"]
-    q3_weights = [15, 40, 30, 15]
+    q3_options = ["Có, tôi vẫn chơi dù biết có thể bị trơn trượt", "Có, nhưng tôi chơi cẩn thận hơn bình thường", "Không, tôi chờ đến khi có giày phù hợp mới chơi"]
+    q3_weights = [15.3, 65.2, 19.5]
 
-    # Câu 4: Hành vi khi không có giày đá bóng [2]
-    q4_options = ["Vẫn chơi bình thường bằng giày thể thao thông thường", "Mượn giày của người khác", "Không tham gia chơi và chờ lần khác", "Khác"]
-    q4_weights = [50, 20, 20, 5]
+    q4_options = ["Rất quan tâm, tôi muốn thử ngay", "Quan tâm, nhưng tôi cần biết thêm thông tin", "Không chắc chắn", "Không quan tâm"]
+    q4_weights = [28.4, 52.1, 10.5, 9.0]
 
-    # Câu 5: Lý do (Multiple Choice) [3]
-    # For multiple choice, we weight the chance of EACH option being selected independently
-    q5_options = [
-        ("Không muốn bỏ lỡ buổi chơi cùng bạn bè", 0.8), # 80% chance to pick this
-        ("Không có lựa chọn nào khác vào lúc đó", 0.6),
-        ("Không nghĩ rằng loại giày có ảnh hưởng lớn đến việc chơi", 0.3),
-        ("Khác", 0.1)
+    q5_choices = [
+        ("Phụ kiện có thể bị tuột hoặc lỏng trong khi chơi", 0.45),
+        ("Độ bám vẫn không đủ tốt so với giày đá bóng thật", 0.22),
+        ("Khó gắn hoặc tháo trong thực tế", 0.14),
+        ("Trông không đẹp hoặc kỳ lạ khi đeo", 0.08),
+        ("Giá thành quá cao", 0.06),
+        ("Không có lo ngại gì đặc biệt", 0.05)
     ]
 
-    # Câu 6: Nhận thức về độ bám [3]
-    q6_options = ["Có, rõ rệt", "Có, nhưng không đáng kể", "Không có sự khác biệt", "Tôi chưa để ý đến điều này"]
-    q6_weights = [40, 35, 15, 10]
+    q6_options = ["Có, tôi hoàn toàn tin tưởng", "Có thể, nhưng tôi cần dùng thử trước", "Không chắc chắn", "Không, tôi vẫn không tin tưởng dù được đảm bảo chắc chắn"]
+    q6_weights = [22.8, 48.2, 20.5, 8.5]
 
-    # Câu 7: Lo ngại về nguy cơ chấn thương [4]
-    q7_options = ["Có, tôi lo ngại khá nhiều", "Có, nhưng tôi vẫn chấp nhận rủi ro đó", "Không lo ngại vì tôi đã quen", "Chưa bao giờ nghĩ đến điều này"]
-    q7_weights = [30, 40, 20, 10]
+    q7_options = ["Tiện lợi hơn nhiều so với mang thêm giày", "Tiện lợi hơn một chút", "Không có sự khác biệt đáng kể", "Kém tiện lợi hơn so với mang thêm giày"]
+    q7_weights = [35.4, 45.3, 10.2, 9.1]
 
-    # Câu 8: Vấn đề cần giải pháp [4]
-    q8_options = ["Có, đây là một vấn đề thực sự cần được giải quyết", "Có thể, nhưng không quá cấp bách", "Không, tôi không coi đây là vấn đề lớn"]
-    q8_weights = [40, 40, 20]
-
-    # Câu 9: Mức độ quan tâm giải pháp [5]
-    q9_options = ["Có, tôi rất quan tâm", "Có thể, tùy thuộc vào giải pháp đó là gì", "Không quan tâm"]
+    q8_options = ["Dưới 100.000 VND", "Từ 100.000 đến 200.000 VND", "Từ 200.000 đến 400.000 VND", "Trên 400.000 VND", "Tôi sẽ không mua dù ở mức giá nào"]
+    q8_weights = [52.7, 30.1, 10.2, 4.0, 3.0]
+    
+    q9_options = ["Có, tôi sẽ mua ngay", "Có thể, tôi sẽ cân nhắc thêm", "Không, tôi sẽ không mua"]
     q9_weights = [45, 40, 15]
 
-    # Selection Logic — [0] unpacks the single-item list random.choices() returns
+    # Generate Multiple Choice for Q5 [cite: 6, 11]
+    selected_q5 = [opt for opt, weight in q5_choices if random.random() < weight]
+    
     response = {
-        "Câu 1": random.choices(q1_options, weights=q1_weights)[0],
-        "Câu 2": random.choices(q2_options, weights=q2_weights)[0],
-        "Câu 3": random.choices(q3_options, weights=q3_weights)[0],
-        "Câu 4": random.choices(q4_options, weights=q4_weights)[0],
-        "Câu 6": random.choices(q6_options, weights=q6_weights)[0],
-        "Câu 7": random.choices(q7_options, weights=q7_weights)[0],
-        "Câu 8": random.choices(q8_options, weights=q8_weights)[0],
-        "Câu 9": random.choices(q9_options, weights=q9_weights)[0],
+        "entry.793130714": random.choices(q1_options, weights=q1_weights)[0],
+        "entry.1605854701": random.choices(q2_options, weights=q2_weights)[0],
+        "entry.1887328251": random.choices(q3_options, weights=q3_weights)[0],
+        "entry.660043415": random.choices(q4_options, weights=q4_weights)[0],
+        "entry.605237767": selected_q5 if selected_q5 else ["Không có lo ngại gì đặc biệt"],
+        "entry.518529063": random.choices(q6_options, weights=q6_weights)[0],
+        "entry.804096739": random.choices(q7_options, weights=q7_weights)[0],
+        "entry.1930033278": random.choices(q8_options, weights=q8_weights)[0],
+        "entry.2044483679": random.choices(q9_options, weights=q9_weights)[0],
+        "fvv": "1",
+        "draftResponse": "[null,null,\"-7398399057092063546\"]",
+        "pageHistory": "0",
+        "fbzx": "-7398399057092063546"
     }
-
-    # Special handling for Question 5 (Checkbox/Multiple Choice) [3]
-    selected_q5 = [opt for opt, weight in q5_options if random.random() < weight]
-    response["Câu 5"] = "; ".join(selected_q5) if selected_q5 else "N/A"
-
-    # Câu 10: Weighted boolean (70% True / 30% False)
-    # If True, generate a Gemini response using the prompt from .env
-    # q10_true = random.choices([True, False], weights=[70, 30])[0]
-    # if q10_true and _gemini_model and _GEMINI_PROMPT:
-    #     gemini_response = _gemini_model.generate_content(_GEMINI_PROMPT)
-    #     response["Câu 10"] = gemini_response.text.strip()
-    # else:
-    #     response["Câu 10"] = ""
-
     return response
 
-def save_weighted_csv(filename="data.csv", num_records=20):
-    fieldnames = ["Câu 1", "Câu 2", "Câu 3", "Câu 4", "Câu 5", "Câu 6", "Câu 7", "Câu 8", "Câu 9"]
-    
-    with open(filename, mode='w', newline='', encoding='utf-8-sig') as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-        for _ in range(num_records):
-            writer.writerow(generate_weighted_responses())
-    
-    print(f"Generated {num_records} weighted responses in '{filename}'.")
+def submit_to_google_form(data):
+    """Sends a single response to the Google Form via POST."""
+    try:
+        res = requests.post(FORM_URL, data=data)
+        if res.status_code == 200:
+            print("Successfully submitted response.")
+        else:
+            print(f"Failed to submit. Status code: {res.status_code}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def run_simulation(num_records=5, delay=1):
+    """Generates and submits multiple responses with a slight delay."""
+    for i in range(num_records):
+        print(f"Submitting response {i+1}/{num_records}...")
+        payload = generate_weighted_responses()
+        submit_to_google_form(payload)
+        time.sleep(delay) # Delay to avoid being flagged as a bot
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate weighted survey responses.")
-    parser.add_argument("--records", type=int, default=20, help="Number of records to generate (default: 20)")
-    parser.add_argument("--output", type=str, default="data.csv", help="Output CSV filename (default: data.csv)")
+    parser = argparse.ArgumentParser(description="Submit weighted survey responses to Google Forms.")
+    parser.add_argument("--records", type=int, default=5, help="Number of submissions")
+    parser.add_argument("--delay", type=float, default=1.5, help="Delay in seconds between submissions")
     args = parser.parse_args()
 
-    save_weighted_csv(filename=args.output, num_records=args.records)
-# save_weighted_csv()
+    run_simulation(num_records=args.records, delay=args.delay)
