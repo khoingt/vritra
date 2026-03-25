@@ -6,7 +6,6 @@ import requests
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-# Load variables from .env 
 load_dotenv()
 FORM_ID = os.getenv("FORM_ID")
 
@@ -17,13 +16,11 @@ if not FORM_ID:
 FORM_URL = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
 
 def generate_weighted_responses():
-    """Generates response data based on weighted probabilities."""
-    # Question 1: The Screening Question
+    # Q1: Screening Question
     q1_options = ["Có, tôi chơi thường xuyên (ít nhất 1 lần mỗi tuần)", "Thỉnh thoảng (1 đến 3 lần mỗi tháng)", "Hiếm khi hoặc không bao giờ"]
     q1_weights = [85.5, 10.5, 4.0]
     q1_answer = random.choices(q1_options, weights=q1_weights)[0]
 
-    # Check if screening failed
     if q1_answer == "Hiếm khi hoặc không bao giờ":
         return {
             "type": "fail",
@@ -31,7 +28,7 @@ def generate_weighted_responses():
             "fbzx": str(random.randint(10**18, 10**19)) 
         }
 
-    # Weights for the rest of the survey
+    # Main Survey Questions
     q5_choices = [
         ("Phụ kiện có thể bị tuột hoặc lỏng trong khi chơi", 0.45),
         ("Độ bám vẫn không đủ tốt so với giày đá bóng thật", 0.22),
@@ -59,73 +56,55 @@ def generate_weighted_responses():
     }
 
 def submit_logic(response):
-    """Handles the multi-step POST logic based on screening results."""
     fbzx = response["fbzx"]
     ts = str(int(time.time() * 1000))
 
     if response["type"] == "fail":
-        # Request 1: Continue request
+        # Request 1: Continue
         payload1 = {
-            "entry.213754659": response["q1_answer"],
-            "entry.213754659_sentinel": "",
-            "fvv": "1",
-            "partialResponse": f"[null,null,\"{fbzx}\"]",
-            "pageHistory": "0",
-            "fbzx": fbzx,
-            "submissionTimestamp": "-1",
-            "continue": "1"
+            "entry.213754659": response["q1_answer"], "entry.213754659_sentinel": "",
+            "fvv": "1", "partialResponse": f"[null,null,\"{fbzx}\"]",
+            "pageHistory": "0", "fbzx": fbzx, "submissionTimestamp": "-1", "continue": "1"
         }
         requests.post(FORM_URL, data=payload1)
         
-        # Request 2: Final submission
+        # Request 2: Screened Out Submit
         payload2 = {
-            "fvv": "1",
-            "partialResponse": f"[[[null,213754659,[\"{response['q1_answer']}\"],0]],null,\"{fbzx}\"]",
-            "pageHistory": "0,-3",
-            "fbzx": fbzx,
-            "submissionTimestamp": ts
+            "fvv": "1", "partialResponse": f"[[[null,213754659,[\"{response['q1_answer']}\"],0]],null,\"{fbzx}\"]",
+            "pageHistory": "0,-3", "fbzx": fbzx, "submissionTimestamp": ts
         }
         requests.post(FORM_URL, data=payload2)
         return "fail"
 
     else:
-        # Pass logic: Full POST submission
+        # Full Pass Submit
         full_data = response["data"]
-        full_data.update({
-            "fvv": "1",
-            "pageHistory": "0,1",
-            "fbzx": fbzx,
-            "submissionTimestamp": ts
-        })
+        full_data.update({"fvv": "1", "pageHistory": "0,1", "fbzx": fbzx, "submissionTimestamp": ts})
         for key in list(full_data.keys()):
-            if "entry" in key:
-                full_data[f"{key}_sentinel"] = ""
+            if "entry" in key: full_data[f"{key}_sentinel"] = ""
         
         requests.post(FORM_URL, data=full_data)
         return "pass"
 
-def run_simulation(num_records, delay):
-    """Loops through the specified number of simulations with a progress bar."""
-    print(f"Targeting Form: {FORM_ID}")
+def run_simulation(num_records, base_delay):
     stats = {"pass": 0, "fail": 0}
+    print(f"Targeting Form: {FORM_ID}")
     
     for _ in tqdm(range(num_records), desc="Submitting Responses", unit="resp"):
         res = generate_weighted_responses()
         status = submit_logic(res)
         stats[status] += 1
-        if num_records > 1:
-            time.sleep(delay)
+        
+        # Human Jitter: base_delay +/- 50% randomness
+        jitter = random.uniform(base_delay * 0.5, base_delay * 1.5)
+        time.sleep(jitter)
 
-    print("\n--- Simulation Summary ---")
-    print(f"Total Attempts: {num_records}")
-    print(f"Passed Screening: {stats['pass']}")
-    print(f"Screened Out: {stats['fail']}")
-    print("--------------------------")
+    print(f"\n--- Done ---\nPassed: {stats['pass']}\nFailed: {stats['fail']}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Submit weighted survey responses to Google Forms.")
-    parser.add_argument("-n", "--simulations", type=int, default=5, help="Number of simulations (default: 5)")
-    parser.add_argument("-d", "--delay", type=float, default=2.0, help="Delay (seconds) between submissions (default: 2.0)")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--simulations", type=int, default=5)
+    parser.add_argument("-d", "--delay", type=float, default=3.0)
     args = parser.parse_args()
 
-    run_simulation(num_records=args.simulations, delay=args.delay)
+    run_simulation(args.simulations, args.delay)
