@@ -1,0 +1,93 @@
+%yaml 1.2
+---
+# The unique identifier for the Google Form extracted from the URL.
+form_id: "YOUR_FORM_ID"
+
+# A list of sections representing the individual pages of the form.
+# The engine processes these in order unless a routing directive intervenes.
+sections:
+  - id: "you_can_put_anything_you_want_in_here"
+    # The zero-indexed identifier for the current page.
+    page_history: "0"
+    questions:
+      - id: "entry.123"
+        # Radio types require a single selection based on a shared weight pool.
+        type: "radio"
+        options:
+          - text: "paste the exact value of your options here"
+            weight: 85.5
+            # Routing determines the next step after this choice is made.
+            routing: "continue"
+          - text: "paste the exact value of your options here"
+            weight: 10.5
+            routing: "continue"
+          - text: "paste the exact value of your options here"
+            weight: 4.0
+            # Terminate sends the payload immediately with the provided history.
+            routing: "terminate:0,-3"
+
+  - id: "user_experience_section"
+    # Indicates the user has moved from page 0 to page 1.
+    page_history: "0,1"
+    questions:
+      - id: "entry.6767"
+        type: "radio"
+        options:
+          - text: "paste the exact value of your options here"
+            weight: 70.0
+          - text: "paste the exact value of your options here"
+            weight: 20.0
+          - text: "paste the exact value of your options here"
+            weight: 10.0
+
+      - id: "entry.1763230376"
+        # Checkbox types evaluate each option as an independent coin flip.
+        type: "checkbox"
+        options:
+          - text: "paste the exact value of your options here"
+            probability: 0.45
+          - text: "paste the exact value of your options here"
+            probability: 0.22
+          - text: "paste the exact value of your options here"
+            probability: 0.14
+          - text: "paste the exact value of your options here"
+            probability: 0.06
+        # A fallback option used if no checkboxes are selected by the randomizer.
+        default_if_none: "Không có lo ngại gì đặc biệt"
+
+  - id: "qualitative_feedback_section"
+    # Indicates the user has progressed through sections 0 and 1 to reach section 2.
+    page_history: "0,1,2"
+    questions:
+      - id: "entry.999999999"
+        # Text types select one string from a pool to simulate typed input.
+        type: "text"
+        text_pool:
+          - "paste the exact value of your options here"
+          - "paste the exact value of your options here"
+          - "paste the exact value of your options here"
+          - "paste the exact value of your options here"
+
+  - id: "final_routing_check"
+    page_history: "0,1,2,3"
+    questions:
+      - id: "entry.888888888"
+        type: "radio"
+        options:
+          - text: "paste the exact value of your options here"
+            weight: 50.0
+            # Routing to a specific section ID rather than just continuing.
+            routing: "submit"
+          - text: "paste the exact value of your options here"
+            weight: 50.0
+            routing: "goto:advanced_feedback_section"
+
+  - id: "advanced_feedback_section"
+    # This page history reflects a non-linear jump from page 3 to page 4.
+    page_history: "0,1,2,3,4"
+    questions:
+      - id: "entry.777777777"
+        type: "text"
+        text_pool:
+          - "paste the exact value of your options here"
+          - "paste the exact value of your options here"
