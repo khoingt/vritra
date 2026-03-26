@@ -22,11 +22,7 @@ def generate_weighted_responses():
     q1_answer = random.choices(q1_options, weights=q1_weights)[0]
 
     if q1_answer == "Hiếm khi hoặc không bao giờ":
-        return {
-            "type": "fail",
-            "q1_answer": q1_answer,
-            "fbzx": str(random.randint(10**18, 10**19)) 
-        }
+        return {"type": "fail", "q1_answer": q1_answer, "fbzx": str(random.randint(10**18, 10**19))}
 
     # Main Survey Questions
     q5_choices = [
@@ -49,7 +45,7 @@ def generate_weighted_responses():
             "entry.453496296": random.choices(["Rất quan tâm, tôi muốn thử ngay", "Quan tâm, nhưng tôi cần biết thêm thông tin", "Không chắc chắn", "Không quan tâm"], weights=[28.4, 52.1, 10.5, 9.0])[0],
             "entry.1763230376": selected_q5 if selected_q5 else ["Không có lo ngại gì đặc biệt"],
             "entry.614858321": random.choices(["Có, tôi hoàn toàn tin tưởng", "Có thể, nhưng tôi cần dùng thử trước", "Không chắc chắn", "Không, tôi vẫn không tin tưởng dù được đảm bảo chắc chắn"], weights=[22.8, 48.2, 20.5, 8.5])[0],
-            "entry.205766033": random.choices(["Tiện lợi hơn nhiều so với mang thêm giày", "Tiện lợi hơn một chút", "Không có sự khác biệt đáng kể", "Kém tiện lợi hơn so với mang thêm giày"], weights=[35.4, 45.3, 10.2, 9.1])[0],
+            "entry.205766033": random.choices(["Tiện lợi hơn nhiều so với mang thêm giày", "Tiện lợi hơn một chút", "Không có sự khác biệt đáng kể", "Kém tiện lợi hơn so with mang thêm giày"], weights=[35.4, 45.3, 10.2, 9.1])[0],
             "entry.768782966": random.choices(["Dưới 100.000 VND", "Từ 100.000 đến 200.000 VND", "Từ 200.000 đến 400.000 VND", "Trên 400.000 VND", "Tôi sẽ không mua dù ở mức giá nào"], weights=[52.7, 30.1, 10.2, 4.0, 3.0])[0],
             "entry.1117461758": random.choices(["Có, tôi sẽ mua ngay", "Có thể, tôi sẽ cân nhắc thêm", "Không, tôi sẽ không mua"], weights=[45, 40, 15])[0],
         }
@@ -60,29 +56,23 @@ def submit_logic(response):
     ts = str(int(time.time() * 1000))
 
     if response["type"] == "fail":
-        # Request 1: Continue
-        payload1 = {
+        # Step 1: Continue
+        requests.post(FORM_URL, data={
             "entry.213754659": response["q1_answer"], "entry.213754659_sentinel": "",
             "fvv": "1", "partialResponse": f"[null,null,\"{fbzx}\"]",
             "pageHistory": "0", "fbzx": fbzx, "submissionTimestamp": "-1", "continue": "1"
-        }
-        requests.post(FORM_URL, data=payload1)
-        
-        # Request 2: Screened Out Submit
-        payload2 = {
+        })
+        # Step 2: Final Submit for Screened Out
+        requests.post(FORM_URL, data={
             "fvv": "1", "partialResponse": f"[[[null,213754659,[\"{response['q1_answer']}\"],0]],null,\"{fbzx}\"]",
             "pageHistory": "0,-3", "fbzx": fbzx, "submissionTimestamp": ts
-        }
-        requests.post(FORM_URL, data=payload2)
+        })
         return "fail"
-
     else:
-        # Full Pass Submit
         full_data = response["data"]
         full_data.update({"fvv": "1", "pageHistory": "0,1", "fbzx": fbzx, "submissionTimestamp": ts})
         for key in list(full_data.keys()):
             if "entry" in key: full_data[f"{key}_sentinel"] = ""
-        
         requests.post(FORM_URL, data=full_data)
         return "pass"
 
@@ -90,21 +80,18 @@ def run_simulation(num_records, base_delay):
     stats = {"pass": 0, "fail": 0}
     print(f"Targeting Form: {FORM_ID}")
     
-    for _ in tqdm(range(num_records), desc="Submitting Responses", unit="resp"):
+    for _ in tqdm(range(num_records), desc="Submitting", unit="resp"):
         res = generate_weighted_responses()
-        status = submit_logic(res)
-        stats[status] += 1
+        stats[submit_logic(res)] += 1
         
         # Human Jitter: base_delay +/- 50% randomness
-        jitter = random.uniform(base_delay * 0.5, base_delay * 1.5)
-        time.sleep(jitter)
+        time.sleep(random.uniform(base_delay * 0.5, base_delay * 1.5))
 
-    print(f"\n--- Done ---\nPassed: {stats['pass']}\nFailed: {stats['fail']}")
+    print(f"\n--- Summary ---\nPassed: {stats['pass']}\nFailed: {stats['fail']}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--simulations", type=int, default=5)
     parser.add_argument("-d", "--delay", type=float, default=3.0)
     args = parser.parse_args()
-
     run_simulation(args.simulations, args.delay)
