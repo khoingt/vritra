@@ -5,31 +5,34 @@ from unidecode import unidecode
 # Initialize Faker with Vietnamese locale
 fake = Faker('vi_VN')
 
-def generate_pro_vn_emails(count=15):
-    print(f"--- Generating {count} Authentic & Long @google.com Emails ---\n")
+def generate_mixed_vn_emails(count=15):
+    print(f"--- Generating {count} Mixed Vietnamese @google.com Emails ---\n")
     
     results = []
-    departments = ['marketing', 'solutions', 'engineering', 'operation', 'consultant']
+    departments = ['dev', 'ops', 'hr', 'sales', 'legal', 'mkt']
     
     for _ in range(count):
-        # 1. Generate a full Vietnamese name (e.g., "Trần Thị Tuyết")
-        full_name = fake.name()
+        # Choose a style: 0 for Short, 1 for Long
+        style = random.choice(['short', 'long'])
         
-        # 2. Strip accents and convert to lowercase
-        # "Trần Thị Tuyết" -> "Tran Thi Tuyet" -> "tran.thi.tuyet"
-        clean_name = unidecode(full_name).lower().replace(" ", ".")
+        if style == 'short':
+            # Style 1: Simple username + random 2-digit number
+            # e.g., "linh.nguyen.92@google.com"
+            handle = f"{fake.user_name()}.{random.randint(10, 99)}"
         
-        # 3. Add extra length components
-        dept = random.choice(departments)
-        year = random.randint(1985, 2005)
+        else:
+            # Style 2: Full name + Department + Year
+            # e.g., "pham.thi.tuyet.mai.legal.1988@google.com"
+            full_name = unidecode(fake.name()).lower().replace(" ", ".")
+            dept = random.choice(departments)
+            year = random.randint(1980, 2005)
+            handle = f"{full_name}.{dept}.{year}"
         
-        # 4. Construct the final long email
-        email = f"{clean_name}.{dept}.{year}@google.com"
-        
+        email = f"{handle}@google.com"
         results.append(email)
-        print(email)
+        print(f"[{style.upper()}] {email}")
         
     return results
 
 if __name__ == "__main__":
-    generate_pro_vn_emails(15)
+    generate_mixed_vn_emails(15)
